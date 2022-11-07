@@ -1,0 +1,367 @@
+---
+- name: Laravel Deployment Using Ansible
+  hosts: node
+  remote_user: ubuntu
+  become: true
+
+  tasks:
+  - name: Update Apt Repository
+    apt: update_cache=yes cache_valid_time=3600
+  - name: Upgrade The Apt Repository'
+    apt: upgrade=yes cache_valid_time=3600
+
+  - name: Install 'wget', 'curl', 'git', 'apache2'
+    apt:
+     pkg:
+     - wget
+     - curl
+     - git
+     - apache2
+
+  - name: Install UFW
+    apt:
+     name: ufw
+     state: present
+
+  - name: Allow Apache
+    ufw:
+     name: Apache
+     rule: allow
+
+  - name: Allow OpenSSH
+    ufw: name=OpenSSH rule=allow
+
+  - name: Allow port 22 (SSH)
+    ufw:
+     port: '22'
+     proto: tcp
+     rule: allow
+
+  - name: Allow port 80 (HTTP)
+    ufw:
+     port: '80'
+     proto: tcp
+     rule: allow
+
+  - name: Allow port 443 (HTTPs)
+    ufw:
+     port: '443'
+     rule: allow
+
+  - name: Allow port 3306 (MySQL)
+    ufw:
+     port: '3306'
+     rule: allow
+
+  - name: Allow port 5432 (PostgreSQL)
+    ufw:
+     port: '5432'
+     rule: allow
+
+  - name: Enable UFW
+    ufw: state=enabled policy=allow
+
+  - name: Copy the PostgreSQL Script
+      copy:
+      src: exam.sh
+      dest: /home/ubuntu
+      mode: '0775'
+      owner: ubuntu
+      group: ubuntu
+  - name: Execute the PostgreSQL Script
+    command: sh /home/ubuntu/exam.sh
+
+  # Installing PHP and Dependencies
+
+  - name: Install Dependencies for PHP
+    command: apt install software-properties-common -y
+
+  - name: Add Repo
+    command: add-apt-repository ppa:ondrej/php -y
+
+  - name: Update Apt Repository
+
+  - name: Update Apt Repository
+    apt: update_cache=yes cache_valid_time=3600
+  - name: Upgrade The Apt Repository'
+    apt: upgrade=yes cache_valid_time=3600
+
+  - name: Install PHP
+    command: apt install php8.1 -y
+
+  - name: Install PHP modules
+    apt:
+     pkg:
+      - php8.1-cli
+      - php8.1-common
+      - php8.1-pgsql
+      - php8.1-mysql
+      - php8.1-zip
+      - php8.1-curl
+      - php8.1-xml
+      - php8.1-gd
+      - php8.1-mbstring
+
+  - name: Update Apt Repository
+    apt: update_cache=yes cache_valid_time=3600
+
+  - name: Upgrade The Apt Repository'
+    apt: upgrade=yes cache_valid_time=360
+
+  - name: Install Python3
+    apt: name=python3 state=latest
+
+  - name: Install Pip
+    apt: name=pip state=latest
+
+  - name: Install MySQL Server
+    apt:
+     name: mysql-server
+     state: latest
+
+  - name: Install MySQL Client
+    apt:
+     name: mysql-client
+     state: latest
+
+  - name: Install PyMySQL Library
+     pip:
+     name: pymysql
+     state: latest
+
+  - name: Start mySQL
+    service:
+      name: mysql
+      enabled: true
+      state: started
+
+  - name: Create ~/.my.cnf
+    file:
+      path: ~/.my.cnf
+      state: touch
+
+  - name: Insert into ~/.my.cnf
+    blockinfile:
+      path: ~/.my.cnf
+      block: |
+        [client]
+        user={{ mysql_user }}
+        password={{ mysql_root_password }}
+  
+  - name: sql query flush
+    command:  mysql -u root --execute="FLUSH PRIVILEGES"
+
+  - name: Create a Database
+    mysql_db:
+      login_user: 'root'
+      login_password: "{{ mysql_root_password }}"
+      name: "{{ db_name }}"
+      state: present
+
+   - name: Restart MySQL
+    service: name=mysql state=restarted
+
+  - name: Update Apt Repository
+    apt: update_cache=yes cache_valid_time=3600
+  - name: Upgrade The Apt Repository'
+    apt: upgrade=yes cache_valid_time=3600
+
+  - name: Download Installer
+    command: curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
+  - name: Verify Installer
+    command: php -r "if (hash_file('SHA384', '/tmp/composer-setup.php') === '$HASH') { echo 'In>
+  - name: Install
+    command: php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+
+  - name: Execute Permission
+    file:
+     path: /usr/local/bin/composer
+     mode: u+x
+
+  - name: Clone repo
+    command: git clone https://github.com/f1amy/laravel-realworld-example-app.git
+
+  - name: Moving repo to the right path
+    command: sudo mv /home/ubuntu/laravel-realworld-example-app /var/www/html/postgre_laravel
+ 
+  - name: Giving right permissions to File
+    file:
+     path: /var/www/html/postgre_laravel
+     recurse: yes
+     owner: ubuntu
+     group: ubuntu
+
+- name: Install App Dependencies
+  hosts: node
+  remote_user: ubuntu
+
+  tasks:
+  - name: Update
+    composer:
+      command: update
+      working_dir: /var/www/html/postgre_laravel
+
+  - name: Composer Install
+    composer:
+      command: install
+      working_dir: /var/www/html/postgre_laravel
+
+- name: Continue App Deployment
+  hosts: node
+  remote_user: ubuntu
+  become: true
+
+  tasks:
+  - name: Change owner of laravel folder
+    file:
+     path: /var/www/html/postgre_laravel
+     state: directory
+     recurse: yes
+     owner: www-data
+     group: www-data
+     mode: '0775'
+
+  - name: Change file permission of storage
+    file:
+     path: /var/www/html/postgre_laravel/storage
+     state: directory
+     recurse: yes
+     owner: www-data
+     group: www-data
+     mode: '0775'
+
+  - name: Change file permission of bootstrap cache
+    file:
+     path: /var/www/html/postgre_laravel/bootstrap/cache
+     state: directory
+     recurse: yes
+     owner: www-data
+     group: www-data
+     mode: '0775'
+
+  - name: Copying .env
+    command: sudo cp /var/www/html/postgre_laravel/.env.example /var/www/html/postgre_laravel/.>
+
+  - name: Create an apache virtual host configuration file
+    ansible.builtin.copy:
+     dest: /var/www/html/postgre_laravel/.env
+     content: |
+      APP_NAME="Laravel Realworld Example App"
+      APP_ENV=local
+      APP_KEY=
+      APP_DEBUG=true
+      APP_URL=http://13.40.172.50
+      APP_PORT=3000
+
+      LOG_CHANNEL=stack
+      LOG_DEPRECATIONS_CHANNEL=null
+      LOG_LEVEL=debug
+
+      DB_CONNECTION=mysql
+      DB_HOST=127.0.0.1
+      DB_PORT=3306
+      DB_DATABASE=psql_exam
+      DB_USERNAME=root
+      DB_PASSWORD=password
+      
+      BROADCAST_DRIVER=log
+      CACHE_DRIVER=file
+      FILESYSTEM_DISK=local
+      QUEUE_CONNECTION=sync
+      SESSION_DRIVER=file
+      SESSION_LIFETIME=120
+
+      MEMCACHED_HOST=127.0.0.1
+
+      REDIS_HOST=127.0.0.1
+      REDIS_PASSWORD=null
+      REDIS_PORT=6379
+
+      MAIL_MAILER=smtp
+      MAIL_HOST=mailhog
+      MAIL_PORT=1025
+      MAIL_USERNAME=null
+      MAIL_PASSWORD=null
+      MAIL_ENCRYPTION=null
+
+      MAIL_FROM_ADDRESS="hello@example.com"
+      MAIL_FROM_NAME="${APP_NAME}"
+
+      AWS_ACCESS_KEY_ID=
+      AWS_SECRET_ACCESS_KEY=
+      AWS_DEFAULT_REGION=us-east-1
+      AWS_BUCKET=
+      AWS_USE_PATH_STYLE_ENDPOINT=false
+
+      PUSHER_APP_ID=
+      PUSHER_APP_KEY=
+      PUSHER_APP_SECRET=
+      PUSHER_APP_CLUSTER=mt1
+
+      MIX_PUSHER_APP_KEY="${PUSHER_APP_KEY}"
+      MIX_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
+
+      L5_SWAGGER_GENERATE_ALWAYS=true
+      SAIL_XDEBUG_MODE=develop,debug
+      SAIL_SKIP_CHECKS=true
+
+  - name: Create the web.php file in the routes directory
+    ansible.builtin.copy:
+     dest: /var/www/html/postgre_laravel/routes/web.php
+     content: |
+      <?php
+
+      Route::get('/', function () {
+        return view('welcome');
+      });
+
+  - name: Download and install all requirements outlined in the /var/www/html/postgre_laravel/c>
+    shell: composer install --no-interaction
+    args:
+     chdir: /var/www/html/postgre_laravel
+
+  - name: Generate App key
+    ansible.builtin.shell: php artisan key:generate
+    args:
+     chdir: /var/www/html/postgre_laravel
+
+  - name: Run the php artisan:cache
+    ansible.builtin.shell: php artisan config:cache
+    args:
+     chdir: /var/www/html/postgre_laravel
+
+  - name: Run the php artisan:fresh
+    ansible.builtin.shell: php artisan migrate:fresh
+    args:
+     chdir: /var/www/html/postgre_laravel
+
+  - name: Run the php artisan .... command
+    ansible.builtin.shell: php artisan migrate --seed
+    args:
+     chdir: /var/www/html/postgre_laravel
+
+  - name: Create an apache virtual host configuration file
+    ansible.builtin.copy:
+     dest: /etc/apache2/sites-available/postgre_laravel.conf
+     content: |
+      <VirtualHost *:80>
+        ServerAdmin admin@maxxim.tech
+        ServerName maxxim.tech
+        DocumentRoot /var/www/html/postgre_laravel/public
+
+        <Directory /var/www/html/postgre_laravel/public>
+          AllowOverride All
+        </Directory>
+
+        ErrorLog ${APACHE_LOG_DIR}/error.log
+        CustomLog ${APACHE_LOG_DIR}/access.log combined
+      </VirtualHost>
+
+  - name: Enable a2enmod rewrite
+    ansible.builtin.command: a2enmod rewrite
+  - name: Disable default apache page and enable laravel page
+    ansible.builtin.command: a2dissite 000-default.conf
+  - name: Enable laravel page
+    ansible.builtin.command: a2ensite postgre_laravel.conf
+  - name: Restart apache web server
+    ansible.builtin.command: systemctl reload apache2
