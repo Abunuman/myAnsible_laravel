@@ -11,3 +11,5 @@
 - [ ] The entire deployment steps including installation of packages and dependencies, configuring apache webserver etc, are defined in exam.yml and deployed to a Managed node on AWS
 
 - [ ] exam.sh houses the bashscript installed and set up postgresql
+
+- [ ] SSL/TLS encryption was done using the default.yml and playbook.yml file

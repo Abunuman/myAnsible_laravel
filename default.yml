@@ -1,0 +1,7 @@
+certbot_site_names: {
+    host: "maxxim.tech",
+ }
+
+certbot_package: "python3-certbot-apache"
+certbot_plugin: "apache"
+certbot_mail_address: abunumanpharm@gmail.com
